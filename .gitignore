@@ -140,3 +140,4 @@ cython_debug/
 generateDS-*/
 PlanProFiles/
 1.9.0.1202_2019-02-22_Schema/
+.idea/
