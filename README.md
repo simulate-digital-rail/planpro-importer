@@ -8,13 +8,13 @@ It supports:
 
 Current version:
 - Schema version: 1.9.0.1202_2019-02-22
-- Library version: 1.9.0.1202_2019-02-22
+- Library version: 1.9.0.1202_2019-02-22-v2
 
 ## Installation
 
 Just install it with pip:
 ```
-pip3 install git+https://gitlab.hpi.de/arne.boockmeyer/planpro-python-model
+pip3 install git+https://github.com/arneboockmeyer/planpro-python-model
 ```
 
 You may need some authentication ([Hint 1](https://cloud.google.com/artifact-registry/docs/python/authentication), [Hint 2](https://pip.pypa.io/en/latest/topics/authentication/)).
@@ -62,6 +62,7 @@ uuidfinder.find_infrastructure_element_by_uuid(container, "ABCDEF12-3456-7890-AB
 ## Generate a new model
 
 Use [generateDS.py](http://www.davekuhlman.org/generateDS.html) to generate a model from the PlanPro-XSD-files.
+Therefore you need the schema files of the current PlanPro version.
 
 CLI-Command:
 ```
