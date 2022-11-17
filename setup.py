@@ -68,5 +68,9 @@ setup(
     #   py_modules=["my_module"],
     #   Alternative: packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     #
-    py_modules=["planpromodel", "uuidfinder"]  # Required
+    py_modules=["planpromodel", "uuidfinder"],  # Required
+    install_requires=[
+        'six',
+        'lxml',
+    ],
 )
