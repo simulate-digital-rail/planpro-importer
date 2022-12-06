@@ -1,5 +1,5 @@
-import planpro_importer
 from yaramo.model import Topology, Node, Signal, Edge
+from planpro_importer import model
 
 
 class PlanProReader(object):
@@ -12,7 +12,7 @@ class PlanProReader(object):
         self.topology = Topology()
 
     def read_topology_from_plan_pro_file(self):
-        root_object = planpro_importer.model.parse(self.plan_pro_file_name, silence=True)
+        root_object = model.parse(self.plan_pro_file_name, silence=True)
         number_of_fachdaten = len(root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten)
 
         for id_of_fachdaten in range(0, number_of_fachdaten):
