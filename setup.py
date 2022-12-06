@@ -23,7 +23,7 @@ setup(
     # There are some restrictions on what makes a valid project name
     # specification here:
     # https://packaging.python.org/specifications/core-metadata/#name
-    name='planpro-python-model',  # Required
+    name='planpro-importer',  # Required
 
     # Versions should comply with PEP 440:
     # https://www.python.org/dev/peps/pep-0440/
@@ -68,7 +68,7 @@ setup(
     #   py_modules=["my_module"],
     #   Alternative: packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     #
-    py_modules=["planpromodel", "uuidfinder"],  # Required
+    py_modules=["planpromodel", "uuidfinder", "planproreader"],  # Required
     install_requires=[
         'six',
         'lxml',
