@@ -1,5 +1,3 @@
-from pprint import pprint
-
 import planpromodel
 from yaramo.model import Topology, Node, Signal, Edge
 
@@ -82,4 +80,3 @@ class PlanProReader(object):
                             )
                             self.topology.add_signal(signal_obj)
                             signal_obj.edge.signals.append(signal_obj)
-
