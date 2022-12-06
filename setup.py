@@ -72,6 +72,6 @@ setup(
     install_requires=[
         'six',
         'lxml',
-        'yaramo @ git+https://github.com:DRSS-EULYNX-2022/Yaramo.git',
+        'yaramo @ git+https://github.com:simulate-digital-rail/yaramo.git',
     ],
 )

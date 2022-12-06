@@ -1,5 +1,7 @@
+from pprint import pprint
+
 import planpromodel
-from yaramo import Topology, Node, Signal, Edge
+from yaramo.model import Topology, Node, Signal, Edge
 
 
 class PlanProReader(object):
@@ -28,7 +30,7 @@ class PlanProReader(object):
     def read_topology_from_container(self, container):
         for top_knoten in container.TOP_Knoten:
             top_knoten_uuid = top_knoten.Identitaet.Wert
-            node_obj = Node(top_knoten_uuid)
+            node_obj = Node(uuid=top_knoten_uuid)
             self.topology.add_node(node_obj)
 
         for top_kante in container.TOP_Kante:
@@ -55,7 +57,7 @@ class PlanProReader(object):
                 node_b.set_connection_head(node_a)
 
             length = top_kante.TOP_Kante_Allg.TOP_Laenge.Wert
-            edge = Edge(top_kante_uuid, node_a, node_b, length)
+            edge = Edge(node_a, node_b, length, uuid=top_kante_uuid)
             self.topology.add_edge(edge)
 
     def read_signals_from_container(self, container):
@@ -67,20 +69,17 @@ class PlanProReader(object):
                     if signal.Bezeichnung is not None and signal.Bezeichnung.Bezeichnung_Aussenanlage is not None:
                         function = signal.Signal_Real.Signal_Real_Aktiv.Signal_Funktion.Wert
                         if function == "Einfahr_Signal" or function == "Ausfahr_Signal" or function == "Block_Signal":
-                            signal_obj = Signal(signal_uuid)
-                            signal_obj.function = function
-                            signal_obj.name = signal.Bezeichnung.Bezeichnung_Aussenanlage.Wert
                             top_kante_id = signal.Punkt_Objekt_TOP_Kante[0].ID_TOP_Kante.Wert
-                            signal_obj.wirkrichtung = signal.Punkt_Objekt_TOP_Kante[0].Wirkrichtung.Wert
-                            signal_obj.distance = signal.Punkt_Objekt_TOP_Kante[0].Abstand.Wert
-                            edge = self.topology.edges[top_kante_id]
-
-                            if signal_obj.wirkrichtung == "in":
-                                signal_obj.previous_node = edge.node_a
-                                signal_obj.next_node = edge.node_b
-                            else:
-                                signal_obj.previous_node = edge.node_b
-                                signal_obj.next_node = edge.node_a
+                            signal_obj = Signal(
+                                uuid=signal_uuid,
+                                function=function,
+                                kind=signal.Signal_Real.Signal_Real_Aktiv_Schirm.Signal_Art.Wert,
+                                name=signal.Bezeichnung.Bezeichnung_Aussenanlage.Wert,
+                                edge=self.topology.edges[top_kante_id],
+                                direction=signal.Punkt_Objekt_TOP_Kante[0].Wirkrichtung.Wert,
+                                side_distance=signal.Punkt_Objekt_TOP_Kante[0].Seitlicher_Abstand.Wert,
+                                distance_previous_node=signal.Punkt_Objekt_TOP_Kante[0].Abstand.Wert
+                            )
                             self.topology.add_signal(signal_obj)
-                            edge.signals.append(signal_obj)
+                            signal_obj.edge.signals.append(signal_obj)
 
