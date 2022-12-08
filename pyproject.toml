@@ -10,7 +10,7 @@ packages = [{include = "planpro_importer"}]
 [tool.poetry.dependencies]
 python = "^3.10"
 six = "^1.16.0"
-#lxml = "^4.9"
+lxml = "^4.9"
 yaramo = {git = "https://github.com/simulate-digital-rail/yaramo.git"}
 
 
