@@ -76,7 +76,7 @@ class PlanProReader(object):
                                 edge=self.topology.edges[top_kante_id],
                                 direction=signal.Punkt_Objekt_TOP_Kante[0].Wirkrichtung.Wert,
                                 side_distance=signal.Punkt_Objekt_TOP_Kante[0].Seitlicher_Abstand.Wert,
-                                distance_previous_node=signal.Punkt_Objekt_TOP_Kante[0].Abstand.Wert
+                                distance_edge=signal.Punkt_Objekt_TOP_Kante[0].Abstand.Wert
                             )
                             self.topology.add_signal(signal_obj)
                             signal_obj.edge.signals.append(signal_obj)
