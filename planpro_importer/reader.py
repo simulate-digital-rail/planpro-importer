@@ -1,15 +1,18 @@
-from yaramo.model import Topology, Node, Signal, Edge
+from yaramo.model import Topology, Node, Signal, Edge, DbrefGeoNode
 from planpro_importer import model
 
 
 class PlanProReader(object):
 
-    def __init__(self, plan_pro_file_name):
+    def __init__(self, plan_pro_file_name, x_coordinate_shift=4533770.0, y_coordinate_shift=5625780.0):
         if plan_pro_file_name.endswith(".ppxml"):
             self.plan_pro_file_name = plan_pro_file_name
+            self.topology = Topology(name=plan_pro_file_name[:-6])
         else:
             self.plan_pro_file_name = plan_pro_file_name + ".ppxml"
-        self.topology = Topology()
+            self.topology = Topology(name=plan_pro_file_name)
+        self.x_coordinate_shift = x_coordinate_shift
+        self.y_coordinate_shift = y_coordinate_shift
 
     def read_topology_from_plan_pro_file(self):
         root_object = model.parse(self.plan_pro_file_name, silence=True)
@@ -29,6 +32,14 @@ class PlanProReader(object):
         for top_knoten in container.TOP_Knoten:
             top_knoten_uuid = top_knoten.Identitaet.Wert
             node_obj = Node(uuid=top_knoten_uuid)
+
+            # Coordinates
+            geo_node_uuid = top_knoten.ID_GEO_Knoten.Wert
+            x, y = self.get_coordinates_of_geo_node(container, geo_node_uuid)
+            if x is None or y is None:
+                continue
+            node_obj.geo_node = DbrefGeoNode(x, y)
+
             self.topology.add_node(node_obj)
 
         for top_kante in container.TOP_Kante:
@@ -80,3 +91,12 @@ class PlanProReader(object):
                             )
                             self.topology.add_signal(signal_obj)
                             signal_obj.edge.signals.append(signal_obj)
+
+    def get_coordinates_of_geo_node(self, container, uuid):
+        geo_points = container.GEO_Punkt
+        for geo_point in geo_points:
+            if geo_point.ID_GEO_Knoten.Wert == uuid:
+                x = float(geo_point.GEO_Punkt_Allg.GK_X.Wert) - self.x_coordinate_shift
+                y = float(geo_point.GEO_Punkt_Allg.GK_Y.Wert) - self.y_coordinate_shift
+                return x, y
+        return None, None
