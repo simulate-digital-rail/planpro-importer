@@ -1,4 +1,4 @@
-from yaramo.model import Topology, Node, Signal, Edge
+from yaramo.model import Topology, Node, Signal, Edge, Route
 from planpro_importer import model
 
 
@@ -22,6 +22,10 @@ class PlanProReader(object):
         for id_of_fachdaten in range(0, number_of_fachdaten):
             container = root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten[id_of_fachdaten].LST_Zustand_Ziel.Container
             self.read_signals_from_container(container)
+
+        for id_of_fachdaten in range(0, number_of_fachdaten):
+            container = root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten[id_of_fachdaten].LST_Zustand_Ziel.Container
+            self.read_routes_from_container(container)
 
         return self.topology
 
@@ -80,3 +84,41 @@ class PlanProReader(object):
                             )
                             self.topology.add_signal(signal_obj)
                             signal_obj.edge.signals.append(signal_obj)
+
+    def read_routes_from_container(self, container):
+        for fstr_fahrweg in container.Fstr_Fahrweg:
+            fahrweg_uuid = str(fstr_fahrweg.Identitaet.Wert)
+
+            # Maximum speed
+            maximum_speed = None
+            if fstr_fahrweg.Fstr_V_Hg is not None:
+                maximum_speed = fstr_fahrweg.Fstr_V_Hg.Wert
+
+            # Start and End signal
+            start_signal = None
+            end_signal = None
+            start_signal_uuid = fstr_fahrweg.ID_Start.Wert
+            end_signal_uuid = fstr_fahrweg.ID_Ziel.Wert
+            if start_signal_uuid in self.topology.signals:
+                start_signal = self.topology.signals[start_signal_uuid]
+            if end_signal_uuid in self.topology.signals:
+                end_signal = self.topology.signals[end_signal_uuid]
+            if start_signal is None or end_signal is None:
+                continue  # Start or end signal not found
+
+            # Edges
+            edges = []
+            for teilbereich in fstr_fahrweg.Bereich_Objekt_Teilbereich:
+                edge_uuid = teilbereich.ID_TOP_Kante.Wert
+                if edge_uuid in self.topology.edges:
+                    edges.append(self.topology.edges[edge_uuid])
+
+            # Build route
+            route = Route(start_signal=start_signal,
+                          maximum_speed=maximum_speed,
+                          uuid=fahrweg_uuid,
+                          name=f"{start_signal.name}-{end_signal.name}")
+            route.end_signal = end_signal
+            route.edges = edges
+            print(fahrweg_uuid)
+            self.topology.add_route(route)
