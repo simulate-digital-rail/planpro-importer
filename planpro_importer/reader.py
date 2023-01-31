@@ -4,15 +4,13 @@ from planpro_importer import model
 
 class PlanProReader(object):
 
-    def __init__(self, plan_pro_file_name, x_coordinate_shift=4533770.0, y_coordinate_shift=5625780.0):
+    def __init__(self, plan_pro_file_name):
         if plan_pro_file_name.endswith(".ppxml"):
             self.plan_pro_file_name = plan_pro_file_name
             self.topology = Topology(name=plan_pro_file_name[:-6])
         else:
             self.plan_pro_file_name = plan_pro_file_name + ".ppxml"
             self.topology = Topology(name=plan_pro_file_name)
-        self.x_coordinate_shift = x_coordinate_shift
-        self.y_coordinate_shift = y_coordinate_shift
 
     def read_topology_from_plan_pro_file(self):
         root_object = model.parse(self.plan_pro_file_name, silence=True)
@@ -96,7 +94,7 @@ class PlanProReader(object):
         geo_points = container.GEO_Punkt
         for geo_point in geo_points:
             if geo_point.ID_GEO_Knoten.Wert == uuid:
-                x = float(geo_point.GEO_Punkt_Allg.GK_X.Wert) - self.x_coordinate_shift
-                y = float(geo_point.GEO_Punkt_Allg.GK_Y.Wert) - self.y_coordinate_shift
+                x = float(geo_point.GEO_Punkt_Allg.GK_X.Wert)
+                y = float(geo_point.GEO_Punkt_Allg.GK_Y.Wert)
                 return x, y
         return None, None
