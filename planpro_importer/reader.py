@@ -36,7 +36,7 @@ class PlanProReader(object):
             x, y = self.get_coordinates_of_geo_node(container, geo_node_uuid)
             if x is None or y is None:
                 continue
-            node_obj.geo_node = DbrefGeoNode(x, y)
+            node_obj.geo_node = DbrefGeoNode(x, y, uuid=geo_node_uuid)
 
             self.topology.add_node(node_obj)
 
@@ -64,7 +64,43 @@ class PlanProReader(object):
                 node_b.set_connection_head(node_a)
 
             length = top_kante.TOP_Kante_Allg.TOP_Laenge.Wert
+
+            # Intermediate geo nodes
+            geo_edges = self.get_all_geo_edges_by_top_edge_uuid(container, top_kante_uuid)
+
+            first_edge = None
+            for geo_edge in geo_edges:
+                if node_a.geo_node.uuid in [geo_edge.ID_GEO_Knoten_A.Wert, geo_edge.ID_GEO_Knoten_B.Wert]:
+                    first_edge = geo_edge
+                    break
+
+            def _get_other_uuid(_uuid, _edge):
+                if _edge.ID_GEO_Knoten_A.Wert == _uuid:
+                    return _edge.ID_GEO_Knoten_B.Wert
+                return _edge.ID_GEO_Knoten_A.Wert
+
+            second_last_node_uuid = node_a.geo_node.uuid
+            last_node_uuid = _get_other_uuid(node_a.geo_node.uuid, first_edge)
+            geo_nodes_in_order = []
+
+            def _get_next_edge(_last_node_uuid, _second_last_node):
+                for _geo_edge in geo_edges:
+                    if _last_node_uuid in [_geo_edge.ID_GEO_Knoten_A.Wert, _geo_edge.ID_GEO_Knoten_B.Wert]:
+                        if _second_last_node not in [_geo_edge.ID_GEO_Knoten_A.Wert, _geo_edge.ID_GEO_Knoten_B.Wert]:
+                            return _geo_edge
+                return None
+
+            while last_node_uuid != node_b.geo_node.uuid:
+                x, y = self.get_coordinates_of_geo_node(container, last_node_uuid)
+                geo_node = DbrefGeoNode(x, y, uuid=last_node_uuid)
+                geo_nodes_in_order.append(geo_node)
+
+                next_edge = _get_next_edge(last_node_uuid, second_last_node_uuid)
+                second_last_node_uuid = last_node_uuid
+                last_node_uuid = _get_other_uuid(second_last_node_uuid, next_edge)
+
             edge = Edge(node_a, node_b, length, uuid=top_kante_uuid)
+            edge.intermediate_geo_nodes = geo_nodes_in_order
             self.topology.add_edge(edge)
 
     def read_signals_from_container(self, container):
@@ -98,3 +134,12 @@ class PlanProReader(object):
                 y = float(geo_point.GEO_Punkt_Allg.GK_Y.Wert)
                 return x, y
         return None, None
+
+    def get_all_geo_edges_by_top_edge_uuid(self, container, top_edge_uuid):
+        geo_edges = container.GEO_Kante
+        result = []
+        for geo_edge in geo_edges:
+            if geo_edge.ID_GEO_Art.Wert == top_edge_uuid:
+                result.append(geo_edge)
+        return result
+
