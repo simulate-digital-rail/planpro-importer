@@ -103,7 +103,7 @@ class PlanProReader(object):
                 second_last_node_uuid = last_node_uuid
                 last_node_uuid = _get_other_uuid(second_last_node_uuid, next_edge)
 
-            edge = Edge(node_a, node_b, length, uuid=top_kante_uuid)
+            edge = Edge(node_a, node_b, length=length, uuid=top_kante_uuid)
             edge.intermediate_geo_nodes = geo_nodes_in_order
             self.topology.add_edge(edge)
 
