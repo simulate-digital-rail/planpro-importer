@@ -11,7 +11,7 @@ packages = [{include = "planpro_importer"}]
 python = "^3.10"
 six = "^1.16.0"
 lxml = "^4.9"
-yaramo = {git = "https://github.com/simulate-digital-rail/yaramo"}
+yaramo = {git = "https://github.com/antonykamp/yaramo", branch = "refactor/replace-connected-nodes-with-edges"}
 
 
 [build-system]
