@@ -46,28 +46,29 @@ class PlanProReader(object):
 
         for top_kante in container.TOP_Kante:
             top_kante_uuid = top_kante.Identitaet.Wert
+            length = top_kante.TOP_Kante_Allg.TOP_Laenge.Wert
             node_a = self.topology.nodes[top_kante.ID_TOP_Knoten_A.Wert]
             node_b = self.topology.nodes[top_kante.ID_TOP_Knoten_B.Wert]
+            edge = Edge(node_a, node_b, length=length, uuid=top_kante_uuid)
 
             # Anschluss A
             anschluss_a = top_kante.TOP_Kante_Allg.TOP_Anschluss_A.Wert
             if anschluss_a == "Links":
-                node_a.set_connection_left(node_b)
+                node_a.set_connection_left_edge(edge)
             elif anschluss_a == "Rechts":
-                node_a.set_connection_right(node_b)
+                node_a.set_connection_right_edge(edge)
             else:
-                node_a.set_connection_head(node_b)
+                node_a.set_connection_head_edge(edge)
 
             # Anschluss B
             anschluss_b = top_kante.TOP_Kante_Allg.TOP_Anschluss_B.Wert
             if anschluss_b == "Links":
-                node_b.set_connection_left(node_a)
+                node_b.set_connection_left_edge(edge)
             elif anschluss_b == "Rechts":
-                node_b.set_connection_right(node_a)
+                node_b.set_connection_right_edge(edge)
             else:
-                node_b.set_connection_head(node_a)
+                node_b.set_connection_head_edge(edge)
 
-            length = top_kante.TOP_Kante_Allg.TOP_Laenge.Wert
 
             # Intermediate geo nodes
             geo_edges = self.get_all_geo_edges_by_top_edge_uuid(container, top_kante_uuid)
@@ -103,7 +104,6 @@ class PlanProReader(object):
                 second_last_node_uuid = last_node_uuid
                 last_node_uuid = _get_other_uuid(second_last_node_uuid, next_edge)
 
-            edge = Edge(node_a, node_b, length=length, uuid=top_kante_uuid)
             edge.intermediate_geo_nodes = geo_nodes_in_order
             self.topology.add_edge(edge)
 
