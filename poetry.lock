@@ -180,11 +180,11 @@ pyproj = "^3.4.1"
 
 [package.source]
 type = "git"
-url = "https://github.com/antonykamp/yaramo"
+url = "https://github.com/bp2022-ap1/yaramo"
 reference = "refactor/replace-connected-nodes-with-edges"
 resolved_reference = "65c5a6a2e13007ea07ae0f7087840348303a1086"
 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "f44bd14946638fa2dce03e39f91b5595f623b61ec8788ba9ccff1d6a477b5f4a"
+content-hash = "f948a1b1457469798644aaf0505053113eb6d02158e9faba4c09c5f66a4fea44"
