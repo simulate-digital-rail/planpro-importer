@@ -5,12 +5,10 @@ from planpro_importer import model
 class PlanProReader(object):
 
     def __init__(self, plan_pro_file_name):
-        if plan_pro_file_name.endswith(".ppxml"):
-            self.plan_pro_file_name = plan_pro_file_name
-            self.topology = Topology(name=plan_pro_file_name[:-6])
-        else:
-            self.plan_pro_file_name = plan_pro_file_name + ".ppxml"
-            self.topology = Topology(name=plan_pro_file_name)
+        if not plan_pro_file_name.endswith(".ppxml"):
+            plan_pro_file_name = plan_pro_file_name + ".ppxml"
+        self.plan_pro_file_name = plan_pro_file_name
+        self.topology = Topology(name=self.plan_pro_file_name.split("/")[-1][:-6])
 
     def read_topology_from_plan_pro_file(self):
         root_object = model.parse(self.plan_pro_file_name, silence=True)

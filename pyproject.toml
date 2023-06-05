@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "planpro_importer"
-version = "1.9.0"
+version = "1.9.1"
 description = ""
 authors = ["Arne Boockmeyer <arne.boockmeyer@hpi.de>"]
 readme = "README.md"
