@@ -11,22 +11,32 @@ class PlanProReader(object):
         self.topology = Topology(name=self.plan_pro_file_name.split("/")[-1][:-6])
 
     def read_topology_from_plan_pro_file(self):
-        root_object = model.parse(self.plan_pro_file_name, silence=True)
-        number_of_fachdaten = len(root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten)
+        container = self._get_container()
 
-        for id_of_fachdaten in range(0, number_of_fachdaten):
-            container = root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten[id_of_fachdaten].LST_Zustand_Ziel.Container
-            self.read_topology_from_container(container)
-
-        for id_of_fachdaten in range(0, number_of_fachdaten):
-            container = root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten[id_of_fachdaten].LST_Zustand_Ziel.Container
-            self.read_signals_from_container(container)
-
-        for id_of_fachdaten in range(0, number_of_fachdaten):
-            container = root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten[id_of_fachdaten].LST_Zustand_Ziel.Container
-            self.read_routes_from_container(container)
+        for c in container:
+            self.read_topology_from_container(c)
+        for c in container:
+            self.read_signals_from_container(c)
+        for c in container:
+            self.read_routes_from_container(c)
 
         return self.topology
+
+    def _get_container(self):
+        container = []
+
+        root_object = model.parse(self.plan_pro_file_name, silence=True)
+        if root_object.LST_Planung is not None:
+            number_of_fachdaten = len(root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten)
+            for id_of_fachdaten in range(0, number_of_fachdaten):
+                container.append(root_object.LST_Planung.Fachdaten.
+                                 Ausgabe_Fachdaten[id_of_fachdaten].LST_Zustand_Ziel.Container)
+        if root_object.LST_Zustand is not None:
+            container.append(root_object.LST_Zustand.Container)
+
+        if len(container) == 0:
+            raise ImportError("No PlanPro-data found")
+        return container
 
     def read_topology_from_container(self, container):
         for top_knoten in container.TOP_Knoten:
