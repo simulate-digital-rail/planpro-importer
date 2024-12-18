@@ -80,7 +80,6 @@ class PlanProReader110(object):
 
             # Intermediate geo nodes
             geo_edges = self.get_all_geo_edges_by_top_edge_uuid(container, top_kante_uuid)
-            print(f"{top_kante_uuid[:6]} {list(map(lambda e: e.Identitaet.Wert + " " + str(e.GEO_Kante_Allg.GEO_Laenge.Wert) + " " + e.ID_GEO_Knoten_A.Wert[:6] + " " + e.ID_GEO_Knoten_B.Wert[:6], geo_edges))}")
 
             first_edge = None
             for geo_edge in geo_edges:
@@ -192,7 +191,6 @@ class PlanProReader110(object):
         geo_points = container.GEO_Punkt
         for geo_point in geo_points:
             if geo_point.ID_GEO_Knoten is not None:
-                #print(f"{geo_point} {geo_point.ID_GEO_Knoten}")
                 if geo_point.ID_GEO_Knoten.Wert == uuid:
                     x = float(geo_point.GEO_Punkt_Allg.GK_X.Wert)
                     y = float(geo_point.GEO_Punkt_Allg.GK_Y.Wert)
