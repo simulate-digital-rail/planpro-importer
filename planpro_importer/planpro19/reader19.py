@@ -1,5 +1,5 @@
 from yaramo.model import Topology, Node, Signal, Edge, DbrefGeoNode, Route
-import model19 as model
+from .model19 import parse
 
 
 class PlanProReader19(object):
@@ -25,7 +25,7 @@ class PlanProReader19(object):
     def _get_container(self):
         container = []
 
-        root_object = model.parse(self.plan_pro_file_name, silence=True)
+        root_object = parse(self.plan_pro_file_name, silence=True)
         if root_object.LST_Planung is not None:
             number_of_fachdaten = len(root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten)
             for id_of_fachdaten in range(0, number_of_fachdaten):
@@ -87,13 +87,11 @@ class PlanProReader19(object):
                     break
 
             def _get_other_uuid(_uuid, _edge):
-                print(f"{_edge}")
                 if _edge.ID_GEO_Knoten_A.Wert == _uuid:
                     return _edge.ID_GEO_Knoten_B.Wert
                 return _edge.ID_GEO_Knoten_A.Wert
 
             second_last_node_uuid = node_a.geo_node.uuid
-            print(f"first_edge {first_edge}")
             last_node_uuid = _get_other_uuid(node_a.geo_node.uuid, first_edge)
             geo_nodes_in_order = []
 
@@ -102,7 +100,6 @@ class PlanProReader19(object):
                     if _last_node_uuid in [_geo_edge.ID_GEO_Knoten_A.Wert, _geo_edge.ID_GEO_Knoten_B.Wert]:
                         if _second_last_node not in [_geo_edge.ID_GEO_Knoten_A.Wert, _geo_edge.ID_GEO_Knoten_B.Wert]:
                             return _geo_edge
-                print(f"run to None {_last_node_uuid} {_second_last_node}")
                 return None
 
             while last_node_uuid != node_b.geo_node.uuid:
@@ -112,7 +109,6 @@ class PlanProReader19(object):
 
                 next_edge = _get_next_edge(last_node_uuid, second_last_node_uuid)
                 second_last_node_uuid = last_node_uuid
-                print(f"next_edge {next_edge}")
                 last_node_uuid = _get_other_uuid(second_last_node_uuid, next_edge)
 
             edge = Edge(node_a, node_b, length=length, uuid=top_kante_uuid)
@@ -183,7 +179,6 @@ class PlanProReader19(object):
         geo_points = container.GEO_Punkt
         for geo_point in geo_points:
             if geo_point.ID_GEO_Knoten is not None:
-                print(f"{geo_point} {geo_point.ID_GEO_Knoten}")
                 if geo_point.ID_GEO_Knoten.Wert == uuid:
                     x = float(geo_point.GEO_Punkt_Allg.GK_X.Wert)
                     y = float(geo_point.GEO_Punkt_Allg.GK_Y.Wert)
