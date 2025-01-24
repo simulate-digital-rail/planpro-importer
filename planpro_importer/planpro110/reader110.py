@@ -1,5 +1,6 @@
-from yaramo.model import Topology, Node, Signal, Edge, DbrefGeoNode, Route
+from yaramo.model import Topology, Node, Edge, DbrefGeoNode, Route
 from .model110 import parse
+from .signalreader import SignalReader
 from pathlib import Path
 
 
@@ -122,30 +123,8 @@ class PlanProReader110(object):
                       f"This may cause errors later, since the topology is broken.")
 
     def read_signals_from_container(self, container):
-        for signal in container.Signal:
-            if signal.Signal_Real is None:
-                continue
-            if len(signal.Punkt_Objekt_TOP_Kante) != 1:  # If other than 1, no real signal with lights
-                continue
-            if signal.Bezeichnung is None or signal.Bezeichnung.Bezeichnung_Aussenanlage is None:
-                continue
-            function = signal.Signal_Real.Signal_Funktion.Wert
-            if function in ["Einfahr_Signal", "Ausfahr_Signal", "Block_Signal"]:
-                top_kante_id = signal.Punkt_Objekt_TOP_Kante[0].ID_TOP_Kante.Wert
-                if top_kante_id not in self.topology.edges:  # Corresponding TOP edge not found
-                    continue
-                signal_obj = Signal(
-                    uuid=signal.Identitaet.Wert,
-                    function=function,
-                    kind=signal.Signal_Real.Signal_Real_Aktiv_Schirm.Signal_Art.Wert,
-                    name=signal.Bezeichnung.Bezeichnung_Aussenanlage.Wert,
-                    edge=self.topology.edges[top_kante_id],
-                    direction=signal.Punkt_Objekt_TOP_Kante[0].Wirkrichtung.Wert,
-                    side_distance=signal.Punkt_Objekt_TOP_Kante[0].Seitlicher_Abstand.Wert,
-                    distance_edge=signal.Punkt_Objekt_TOP_Kante[0].Abstand.Wert
-                )
-                self.topology.add_signal(signal_obj)
-                signal_obj.edge.signals.append(signal_obj)
+        reader = SignalReader(self.topology, container)
+        return reader.read_signals_from_container()
 
     def read_routes_from_container(self, container):
         for fstr_fahrweg in container.Fstr_Fahrweg:
