@@ -49,9 +49,6 @@ class NodeReader:
             if node.name is None:
                 node.name = node.uuid[-5:]
 
-        for node in self.topology.nodes.values():
-            print(f"{node.uuid} -> {node.name}")
-
     def get_component_by_element_uuid(self, element_uuid: str):
         """Gets the point component (W_Kr_Gsp_Komponente) by the
         point element uuid
