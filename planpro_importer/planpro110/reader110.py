@@ -1,6 +1,9 @@
-from yaramo.model import Topology, Node, Signal, Edge, DbrefGeoNode, Route
-from .model110 import parse
 from pathlib import Path
+
+from yaramo.model import DbrefGeoNode, Edge, Node, Route, Signal, Topology
+
+from .model110 import parse
+from .nodereader import NodeReader
 
 
 class PlanProReader110(object):
@@ -15,8 +18,10 @@ class PlanProReader110(object):
         container = self._get_container()
 
         for _container in container:
-            self.read_nodes_from_container(_container)
+            node_reader = NodeReader(self.topology, _container)
+            node_reader.read_nodes()
             self.read_edges_from_container(_container)
+            node_reader.add_point_names()
         for _container in container:
             self.read_signals_from_container(_container)
         for _container in container:
@@ -30,8 +35,8 @@ class PlanProReader110(object):
         root_object = parse(self.plan_pro_file_name, silence=True)
         if root_object.LST_Planung is not None:
             container.extend(
-                fd.LST_Zustand_Ziel.Container for fd in
-                root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten
+                fd.LST_Zustand_Ziel.Container
+                for fd in root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten
             )
         if root_object.LST_Zustand is not None:
             container.append(root_object.LST_Zustand.Container)
@@ -39,19 +44,6 @@ class PlanProReader110(object):
         if not container:
             raise ImportError("No PlanPro-data found")
         return container
-
-    def read_nodes_from_container(self, container):
-        for top_knoten in container.TOP_Knoten:
-            node_obj = Node(uuid=top_knoten.Identitaet.Wert)
-
-            # Coordinates
-            geo_node_uuid = top_knoten.ID_GEO_Knoten.Wert
-            x, y = self.get_coordinates_of_geo_node(container, geo_node_uuid)
-            if x is None or y is None:
-                continue
-            node_obj.geo_node = DbrefGeoNode(x, y, uuid=geo_node_uuid)
-
-            self.topology.add_node(node_obj)
 
     def read_edges_from_container(self, container):
         for top_kante in container.TOP_Kante:
@@ -67,18 +59,28 @@ class PlanProReader110(object):
                     _cur_node.set_connection_right(_other_node)
                 else:
                     _cur_node.set_connection_head(_other_node)
-            _set_connection(top_kante.TOP_Kante_Allg.TOP_Anschluss_A.Wert, node_a, node_b)
-            _set_connection(top_kante.TOP_Kante_Allg.TOP_Anschluss_B.Wert, node_b, node_a)
 
-            length = top_kante.TOP_Kante_Allg.TOP_Laenge.Wert
+            _set_connection(
+                top_kante.TOP_Kante_Allg.TOP_Anschluss_A.Wert, node_a, node_b
+            )
+            _set_connection(
+                top_kante.TOP_Kante_Allg.TOP_Anschluss_B.Wert, node_b, node_a
+            )
+
+            length = float(top_kante.TOP_Kante_Allg.TOP_Laenge.Wert)
             length_remaining = length
 
             # Intermediate geo nodes
-            geo_edges = self.get_all_geo_edges_by_top_edge_uuid(container, top_kante_uuid)
+            geo_edges = self.get_all_geo_edges_by_top_edge_uuid(
+                container, top_kante_uuid
+            )
 
             first_edge = None
             for geo_edge in geo_edges:
-                if node_a.geo_node.uuid in [geo_edge.ID_GEO_Knoten_A.Wert, geo_edge.ID_GEO_Knoten_B.Wert]:
+                if node_a.geo_node.uuid in [
+                    geo_edge.ID_GEO_Knoten_A.Wert,
+                    geo_edge.ID_GEO_Knoten_B.Wert,
+                ]:
                     first_edge = geo_edge
                     break
 
@@ -93,14 +95,20 @@ class PlanProReader110(object):
 
             def _get_next_edge(_last_node_uuid, _second_last_node):
                 for _geo_edge in geo_edges:
-                    if _last_node_uuid in [_geo_edge.ID_GEO_Knoten_A.Wert, _geo_edge.ID_GEO_Knoten_B.Wert]:
-                        if _second_last_node not in [_geo_edge.ID_GEO_Knoten_A.Wert, _geo_edge.ID_GEO_Knoten_B.Wert]:
+                    if _last_node_uuid in [
+                        _geo_edge.ID_GEO_Knoten_A.Wert,
+                        _geo_edge.ID_GEO_Knoten_B.Wert,
+                    ]:
+                        if _second_last_node not in [
+                            _geo_edge.ID_GEO_Knoten_A.Wert,
+                            _geo_edge.ID_GEO_Knoten_B.Wert,
+                        ]:
                             return _geo_edge
                 return None
 
             completed = True
             while last_node_uuid != node_b.geo_node.uuid:
-                x, y = self.get_coordinates_of_geo_node(container, last_node_uuid)
+                x, y = NodeReader.get_coordinates_of_geo_node(container, last_node_uuid)
                 geo_node = DbrefGeoNode(x, y, uuid=last_node_uuid)
                 geo_nodes_in_order.append(geo_node)
 
@@ -109,7 +117,9 @@ class PlanProReader110(object):
                     completed = False
                     break
                 second_last_node_uuid = last_node_uuid
-                length_remaining = length_remaining - next_edge.GEO_Kante_Allg.GEO_Laenge.Wert
+                length_remaining = length_remaining - float(
+                    next_edge.GEO_Kante_Allg.GEO_Laenge.Wert
+                )
                 last_node_uuid = _get_other_uuid(second_last_node_uuid, next_edge)
 
             if completed:
@@ -117,22 +127,31 @@ class PlanProReader110(object):
                 edge.intermediate_geo_nodes = geo_nodes_in_order
                 self.topology.add_edge(edge)
             else:
-                print(f"Warning: TOP_EDGE {top_kante_uuid} could not be completed, "
-                      f"since the chain of geo edges is broken after {last_node_uuid}. "
-                      f"This may cause errors later, since the topology is broken.")
+                print(
+                    f"Warning: TOP_EDGE {top_kante_uuid} could not be completed, "
+                    f"since the chain of geo edges is broken after {last_node_uuid}. "
+                    f"This may cause errors later, since the topology is broken."
+                )
 
     def read_signals_from_container(self, container):
         for signal in container.Signal:
             if signal.Signal_Real is None:
                 continue
-            if len(signal.Punkt_Objekt_TOP_Kante) != 1:  # If other than 1, no real signal with lights
+            if (
+                len(signal.Punkt_Objekt_TOP_Kante) != 1
+            ):  # If other than 1, no real signal with lights
                 continue
-            if signal.Bezeichnung is None or signal.Bezeichnung.Bezeichnung_Aussenanlage is None:
+            if (
+                signal.Bezeichnung is None
+                or signal.Bezeichnung.Bezeichnung_Aussenanlage is None
+            ):
                 continue
             function = signal.Signal_Real.Signal_Funktion.Wert
             if function in ["Einfahr_Signal", "Ausfahr_Signal", "Block_Signal"]:
                 top_kante_id = signal.Punkt_Objekt_TOP_Kante[0].ID_TOP_Kante.Wert
-                if top_kante_id not in self.topology.edges:  # Corresponding TOP edge not found
+                if (
+                    top_kante_id not in self.topology.edges
+                ):  # Corresponding TOP edge not found
                     continue
                 signal_obj = Signal(
                     uuid=signal.Identitaet.Wert,
@@ -141,8 +160,10 @@ class PlanProReader110(object):
                     name=signal.Bezeichnung.Bezeichnung_Aussenanlage.Wert,
                     edge=self.topology.edges[top_kante_id],
                     direction=signal.Punkt_Objekt_TOP_Kante[0].Wirkrichtung.Wert,
-                    side_distance=signal.Punkt_Objekt_TOP_Kante[0].Seitlicher_Abstand.Wert,
-                    distance_edge=signal.Punkt_Objekt_TOP_Kante[0].Abstand.Wert
+                    side_distance=signal.Punkt_Objekt_TOP_Kante[
+                        0
+                    ].Seitlicher_Abstand.Wert,
+                    distance_edge=signal.Punkt_Objekt_TOP_Kante[0].Abstand.Wert,
                 )
                 self.topology.add_signal(signal_obj)
                 signal_obj.edge.signals.append(signal_obj)
@@ -176,24 +197,15 @@ class PlanProReader110(object):
                     edges.append(self.topology.edges[edge_uuid])
 
             # Build route
-            route = Route(start_signal=start_signal,
-                          maximum_speed=maximum_speed,
-                          uuid=fahrweg_uuid,
-                          name=f"{start_signal.name}-{end_signal.name}")
+            route = Route(
+                start_signal=start_signal,
+                maximum_speed=maximum_speed,
+                uuid=fahrweg_uuid,
+                name=f"{start_signal.name}-{end_signal.name}",
+            )
             route.end_signal = end_signal
             route.edges = edges
             self.topology.add_route(route)
-
-    def get_coordinates_of_geo_node(self, container, uuid):
-        geo_points = container.GEO_Punkt
-        for geo_point in geo_points:
-            if geo_point.ID_GEO_Knoten is None:
-                continue
-            if geo_point.ID_GEO_Knoten.Wert == uuid:
-                x = float(geo_point.GEO_Punkt_Allg.GK_X.Wert)
-                y = float(geo_point.GEO_Punkt_Allg.GK_Y.Wert)
-                return x, y
-        return None, None
 
     def get_all_geo_edges_by_top_edge_uuid(self, container, top_edge_uuid):
         geo_edges = container.GEO_Kante
@@ -202,4 +214,3 @@ class PlanProReader110(object):
             if geo_edge.ID_GEO_Art.Wert == top_edge_uuid:
                 result.append(geo_edge)
         return result
-
