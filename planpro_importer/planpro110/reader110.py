@@ -1,6 +1,7 @@
 from yaramo.model import Topology, Node, Signal, Edge, DbrefGeoNode, Route
 from .model110 import parse
 from pathlib import Path
+from datetime import datetime
 
 
 class PlanProReader110(object):
@@ -9,7 +10,28 @@ class PlanProReader110(object):
         if not plan_pro_file_name.endswith(".ppxml"):
             plan_pro_file_name = plan_pro_file_name + ".ppxml"
         self.plan_pro_file_name = plan_pro_file_name
+        self.root_object = parse(self.plan_pro_file_name, silence=True)
+
         self.topology = Topology(name=Path(self.plan_pro_file_name).stem)
+        self.topology.created_at = self._get_created_at()
+        self.topology.created_with = self._get_created_with()
+
+    def _get_created_at(self) -> datetime:
+        """Gets the date object, when the PlanPro was created
+
+        :return: The date object
+        """
+        return self.root_object.PlanPro_Schnittstelle_Allg.Erzeugung_Zeitstempel.Wert
+
+    def _get_created_with(self) -> str:
+        """Gets a string containing the name of the tool and the version of the tool.
+
+        :return: The tool string (name and version)
+        """
+        common_interface = self.root_object.PlanPro_Schnittstelle_Allg
+        tool = common_interface.Werkzeug_Name.Wert
+        version = common_interface.Werkzeug_Version.Wert
+        return f"{tool} (Version: {version})"
 
     def read_topology_from_plan_pro_file(self):
         container = self._get_container()
@@ -27,17 +49,17 @@ class PlanProReader110(object):
     def _get_container(self):
         container = []
 
-        root_object = parse(self.plan_pro_file_name, silence=True)
-        if root_object.LST_Planung is not None:
+        if self.root_object.LST_Planung is not None:
             container.extend(
                 fd.LST_Zustand_Ziel.Container for fd in
-                root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten
+                self.root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten
             )
-        if root_object.LST_Zustand is not None:
-            container.append(root_object.LST_Zustand.Container)
+        if self.root_object.LST_Zustand is not None:
+            container.append(self.root_object.LST_Zustand.Container)
 
         if not container:
             raise ImportError("No PlanPro-data found")
+
         return container
 
     def read_nodes_from_container(self, container):
