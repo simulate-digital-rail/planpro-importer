@@ -1,4 +1,6 @@
+from .signalreader import SignalReader
 from pathlib import Path
+from datetime import datetime
 
 from yaramo.model import DbrefGeoNode, Edge, Node, Route, Signal, Topology
 
@@ -12,7 +14,28 @@ class PlanProReader110(object):
         if not plan_pro_file_name.endswith(".ppxml"):
             plan_pro_file_name = plan_pro_file_name + ".ppxml"
         self.plan_pro_file_name = plan_pro_file_name
+        self.root_object = parse(self.plan_pro_file_name, silence=True)
+
         self.topology = Topology(name=Path(self.plan_pro_file_name).stem)
+        self.topology.created_at = self._get_created_at()
+        self.topology.created_with = self._get_created_with()
+
+    def _get_created_at(self) -> datetime:
+        """Gets the date object, when the PlanPro was created
+
+        :return: The date object
+        """
+        return self.root_object.PlanPro_Schnittstelle_Allg.Erzeugung_Zeitstempel.Wert
+
+    def _get_created_with(self) -> str:
+        """Gets a string containing the name of the tool and the version of the tool.
+
+        :return: The tool string (name and version)
+        """
+        common_interface = self.root_object.PlanPro_Schnittstelle_Allg
+        tool = common_interface.Werkzeug_Name.Wert
+        version = common_interface.Werkzeug_Version.Wert
+        return f"{tool} (Version: {version})"
 
     def read_topology_from_plan_pro_file(self):
         container = self._get_container()
@@ -32,17 +55,17 @@ class PlanProReader110(object):
     def _get_container(self):
         container = []
 
-        root_object = parse(self.plan_pro_file_name, silence=True)
-        if root_object.LST_Planung is not None:
+        if self.root_object.LST_Planung is not None:
             container.extend(
                 fd.LST_Zustand_Ziel.Container
-                for fd in root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten
+                for fd in self.root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten
             )
-        if root_object.LST_Zustand is not None:
-            container.append(root_object.LST_Zustand.Container)
+        if self.root_object.LST_Zustand is not None:
+            container.append(self.root_object.LST_Zustand.Container)
 
         if not container:
             raise ImportError("No PlanPro-data found")
+
         return container
 
     def read_edges_from_container(self, container):
@@ -130,43 +153,12 @@ class PlanProReader110(object):
                 print(
                     f"Warning: TOP_EDGE {top_kante_uuid} could not be completed, "
                     f"since the chain of geo edges is broken after {last_node_uuid}. "
-                    f"This may cause errors later, since the topology is broken."
+                    "This may cause errors later, since the topology is broken."
                 )
 
     def read_signals_from_container(self, container):
-        for signal in container.Signal:
-            if signal.Signal_Real is None:
-                continue
-            if (
-                len(signal.Punkt_Objekt_TOP_Kante) != 1
-            ):  # If other than 1, no real signal with lights
-                continue
-            if (
-                signal.Bezeichnung is None
-                or signal.Bezeichnung.Bezeichnung_Aussenanlage is None
-            ):
-                continue
-            function = signal.Signal_Real.Signal_Funktion.Wert
-            if function in ["Einfahr_Signal", "Ausfahr_Signal", "Block_Signal"]:
-                top_kante_id = signal.Punkt_Objekt_TOP_Kante[0].ID_TOP_Kante.Wert
-                if (
-                    top_kante_id not in self.topology.edges
-                ):  # Corresponding TOP edge not found
-                    continue
-                signal_obj = Signal(
-                    uuid=signal.Identitaet.Wert,
-                    function=function,
-                    kind=signal.Signal_Real.Signal_Real_Aktiv_Schirm.Signal_Art.Wert,
-                    name=signal.Bezeichnung.Bezeichnung_Aussenanlage.Wert,
-                    edge=self.topology.edges[top_kante_id],
-                    direction=signal.Punkt_Objekt_TOP_Kante[0].Wirkrichtung.Wert,
-                    side_distance=signal.Punkt_Objekt_TOP_Kante[
-                        0
-                    ].Seitlicher_Abstand.Wert,
-                    distance_edge=signal.Punkt_Objekt_TOP_Kante[0].Abstand.Wert,
-                )
-                self.topology.add_signal(signal_obj)
-                signal_obj.edge.signals.append(signal_obj)
+        reader = SignalReader(self.topology, container)
+        return reader.read_signals_from_container()
 
     def read_routes_from_container(self, container):
         for fstr_fahrweg in container.Fstr_Fahrweg:
