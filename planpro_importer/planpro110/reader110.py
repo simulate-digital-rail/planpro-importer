@@ -112,17 +112,17 @@ class PlanProReader110(object):
                     return _edge.ID_GEO_Knoten_B.Wert
                 return _edge.ID_GEO_Knoten_A.Wert
 
-            second_last_node_uuid = node_a.geo_node.uuid
-            last_node_uuid = _get_other_uuid(node_a.geo_node.uuid, first_edge)
+            second_previous_node_uuid = node_a.geo_node.uuid
+            previous_node_uuid = _get_other_uuid(node_a.geo_node.uuid, first_edge)
             geo_nodes_in_order = []
 
-            def _get_next_edge(_last_node_uuid, _second_last_node):
+            def _get_next_edge(_previous_node_uuid, _second_previous_node_uuid):
                 for _geo_edge in geo_edges:
-                    if _last_node_uuid in [
+                    if _previous_node_uuid in [
                         _geo_edge.ID_GEO_Knoten_A.Wert,
                         _geo_edge.ID_GEO_Knoten_B.Wert,
                     ]:
-                        if _second_last_node not in [
+                        if _second_previous_node_uuid not in [
                             _geo_edge.ID_GEO_Knoten_A.Wert,
                             _geo_edge.ID_GEO_Knoten_B.Wert,
                         ]:
@@ -130,20 +130,20 @@ class PlanProReader110(object):
                 return None
 
             completed = True
-            while last_node_uuid != node_b.geo_node.uuid:
-                x, y = NodeReader.get_coordinates_of_geo_node(container, last_node_uuid)
-                geo_node = DbrefGeoNode(x, y, uuid=last_node_uuid)
+            while previous_node_uuid != node_b.geo_node.uuid:
+                x, y = NodeReader.get_coordinates_of_geo_node(container, previous_node_uuid)
+                geo_node = DbrefGeoNode(x, y, uuid=previous_node_uuid)
                 geo_nodes_in_order.append(geo_node)
 
-                next_edge = _get_next_edge(last_node_uuid, second_last_node_uuid)
+                next_edge = _get_next_edge(previous_node_uuid, second_previous_node_uuid)
                 if next_edge is None:
                     completed = False
                     break
-                second_last_node_uuid = last_node_uuid
+                second_previous_node_uuid = previous_node_uuid
                 length_remaining = length_remaining - float(
                     next_edge.GEO_Kante_Allg.GEO_Laenge.Wert
                 )
-                last_node_uuid = _get_other_uuid(second_last_node_uuid, next_edge)
+                previous_node_uuid = _get_other_uuid(second_previous_node_uuid, next_edge)
 
             if completed:
                 edge = Edge(node_a, node_b, length=length, uuid=top_kante_uuid)
@@ -152,7 +152,7 @@ class PlanProReader110(object):
             else:
                 print(
                     f"Warning: TOP_EDGE {top_kante_uuid} could not be completed, "
-                    f"since the chain of geo edges is broken after {last_node_uuid}. "
+                    f"since the chain of geo edges is broken after {previous_node_uuid}. "
                     "This may cause errors later, since the topology is broken."
                 )
 
