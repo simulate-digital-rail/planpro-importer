@@ -138,11 +138,13 @@ class SignalReader:
                 logging.error(f"Signal function {function} of signal {bezeichnung} ({signal_uuid}) not supported. "
                               f"Skip signal.")
                 continue
-            if len(signal.Punkt_Objekt_TOP_Kante) != 1:  # If other than 1, no real signal with lights
+            if len(signal.Punkt_Objekt_TOP_Kante) != 1:
+                # If other than 1, no real signal with lights
                 logging.warning(f"Signals with more than one related TOP_Kante will be associated to the first "
                                 f"TOP_Kante. Affected Signal: {bezeichnung} ({signal_uuid})")
             top_kante_id = signal.Punkt_Objekt_TOP_Kante[0].ID_TOP_Kante.Wert
-            if top_kante_id not in self.topology.edges:  # Corresponding TOP edge not found
+            if top_kante_id not in self.topology.edges:
+                # Corresponding TOP edge not found
                 logging.error(f"Can not found TOP_Kante of a signal {bezeichnung} ({signal_uuid}). "
                               f"Skip this signal.")
                 continue
