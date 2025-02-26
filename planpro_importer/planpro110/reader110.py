@@ -1,11 +1,11 @@
-from .signalreader import SignalReader
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 from yaramo.model import DbrefGeoNode, Edge, Node, Route, Signal, Topology
 
 from .model110 import parse
 from .nodereader import NodeReader
+from .signalreader import SignalReader
 
 
 class PlanProReader110(object):

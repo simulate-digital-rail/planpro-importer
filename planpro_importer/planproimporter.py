@@ -1,7 +1,8 @@
+from yaramo.model import Topology
+
 from .planpro19 import PlanProReader19
 from .planpro110 import PlanProReader110
 from .planproversion import PlanProVersion
-from yaramo.model import Topology
 
 
 def import_planpro(

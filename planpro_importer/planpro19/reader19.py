@@ -1,4 +1,5 @@
-from yaramo.model import Topology, Node, Signal, Edge, DbrefGeoNode, Route
+from yaramo.model import DbrefGeoNode, Edge, Node, Route, Signal, Topology
+
 from .model19 import parse
 
 

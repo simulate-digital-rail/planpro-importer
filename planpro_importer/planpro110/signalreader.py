@@ -1,15 +1,10 @@
 import logging
-
-from yaramo.model import (
-    Topology,
-    Signal,
-    SignalState,
-    SignalFunction,
-    SignalKind,
-    SignalSystem,
-)
-from .model110 import CContainer
 from typing import Set
+
+from yaramo.model import (Signal, SignalFunction, SignalKind, SignalState,
+                          SignalSystem, Topology)
+
+from .model110 import CContainer
 
 
 class SignalReader:
