@@ -1,11 +1,11 @@
-from .signalreader import SignalReader
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 from yaramo.model import DbrefGeoNode, Edge, Node, Route, Signal, Topology
 
 from .model110 import parse
 from .nodereader import NodeReader
+from .signalreader import SignalReader
 
 
 class PlanProReader110(object):
@@ -71,26 +71,23 @@ class PlanProReader110(object):
     def read_edges_from_container(self, container):
         for top_kante in container.TOP_Kante:
             top_kante_uuid = top_kante.Identitaet.Wert
+            length = float(top_kante.TOP_Kante_Allg.TOP_Laenge.Wert)
             node_a = self.topology.nodes[top_kante.ID_TOP_Knoten_A.Wert]
             node_b = self.topology.nodes[top_kante.ID_TOP_Knoten_B.Wert]
+            edge = Edge(node_a, node_b, length=length, uuid=top_kante_uuid)
 
             # Anschluss
-            def _set_connection(_anschluss, _cur_node, _other_node):
+            def _set_connection(_anschluss, _cur_node):
                 if _anschluss == "Links":
-                    _cur_node.set_connection_left(_other_node)
+                    _cur_node.set_connection_left_edge(edge)
                 elif _anschluss == "Rechts":
-                    _cur_node.set_connection_right(_other_node)
+                    _cur_node.set_connection_right_edge(edge)
                 else:
-                    _cur_node.set_connection_head(_other_node)
+                    _cur_node.set_connection_head_edge(edge)
 
-            _set_connection(
-                top_kante.TOP_Kante_Allg.TOP_Anschluss_A.Wert, node_a, node_b
-            )
-            _set_connection(
-                top_kante.TOP_Kante_Allg.TOP_Anschluss_B.Wert, node_b, node_a
-            )
+            _set_connection(top_kante.TOP_Kante_Allg.TOP_Anschluss_A.Wert, node_a)
+            _set_connection(top_kante.TOP_Kante_Allg.TOP_Anschluss_B.Wert, node_b)
 
-            length = float(top_kante.TOP_Kante_Allg.TOP_Laenge.Wert)
             length_remaining = length
 
             # Intermediate geo nodes
@@ -131,11 +128,15 @@ class PlanProReader110(object):
 
             completed = True
             while previous_node_uuid != node_b.geo_node.uuid:
-                x, y = NodeReader.get_coordinates_of_geo_node(container, previous_node_uuid)
+                x, y = NodeReader.get_coordinates_of_geo_node(
+                    container, previous_node_uuid
+                )
                 geo_node = DbrefGeoNode(x, y, uuid=previous_node_uuid)
                 geo_nodes_in_order.append(geo_node)
 
-                next_edge = _get_next_edge(previous_node_uuid, second_previous_node_uuid)
+                next_edge = _get_next_edge(
+                    previous_node_uuid, second_previous_node_uuid
+                )
                 if next_edge is None:
                     completed = False
                     break
@@ -143,10 +144,11 @@ class PlanProReader110(object):
                 length_remaining = length_remaining - float(
                     next_edge.GEO_Kante_Allg.GEO_Laenge.Wert
                 )
-                previous_node_uuid = _get_other_uuid(second_previous_node_uuid, next_edge)
+                previous_node_uuid = _get_other_uuid(
+                    second_previous_node_uuid, next_edge
+                )
 
             if completed:
-                edge = Edge(node_a, node_b, length=length, uuid=top_kante_uuid)
                 edge.intermediate_geo_nodes = geo_nodes_in_order
                 self.topology.add_edge(edge)
             else:
@@ -155,6 +157,8 @@ class PlanProReader110(object):
                     f"since the chain of geo edges is broken after {previous_node_uuid}. "
                     "This may cause errors later, since the topology is broken."
                 )
+                node_a.remove_edge(edge)
+                node_b.remove_edge(edge)
 
     def read_signals_from_container(self, container):
         reader = SignalReader(self.topology, container)

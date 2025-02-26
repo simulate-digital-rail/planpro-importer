@@ -3,7 +3,7 @@ from planpro_importer import PlanProVersion, import_planpro
 
 def read_19():
     # Test 1.9
-    topology = import_planpro("filename.ppxml", PlanProVersion.PlanPro19)
+    topology = import_planpro("complex-example.ppxml", PlanProVersion.PlanPro19)
     print(f"{len(topology.edges)}")
     print(f"{len(topology.nodes)}")
     print(f"{len(topology.signals)}")
@@ -12,6 +12,7 @@ def read_19():
 
 def read_110():
     # Test 1.10
+    # PlanPro 1.10 file not part of the repository
     topology = import_planpro("filename.ppxml", PlanProVersion.PlanPro110)
     print(f"{len(topology.edges)}")
     print(f"{len(topology.nodes)}")
@@ -21,5 +22,4 @@ def read_110():
 
 if __name__ == "__main__":
     read_19()
-    read_110()
-
+    # read_110()
