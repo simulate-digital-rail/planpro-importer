@@ -49,6 +49,21 @@ class NodeReader:
             if node.name is None:
                 node.name = node.uuid[-5:]
 
+    def get_drive_amounts(self):
+        """Gets the drive amount of a point by its uuid."""
+        w_kr_components = self.container.W_Kr_Gsp_Komponente
+        for w_kr_component in w_kr_components:
+            w_kr_element_uuid = w_kr_component.ID_W_Kr_Gsp_Element.Wert
+            w_kr_element = self.get_component_by_element_uuid(w_kr_element_uuid)
+            w_kr_element_point = self.get_point_of_component(w_kr_element)
+            print('w_kr_element: ', w_kr_element_uuid)
+            w_kr_zungenpaar = w_kr_component.Zungenpaar
+            if w_kr_zungenpaar is not None:
+                w_kr_drive = w_kr_zungenpaar.Elektrischer_Antrieb_Anzahl.Wert
+                print('w_kr_element: ', w_kr_element_uuid, 'Antriebe: ', w_kr_drive)
+                w_kr_element_point.drive_amount = w_kr_drive
+
+
     def get_component_by_element_uuid(self, element_uuid: str):
         """Gets the point component (W_Kr_Gsp_Komponente) by the
         point element uuid
