@@ -1,48 +1,30 @@
 from yaramo.model import DbrefGeoNode, Edge, Node, Route, Signal, Topology
-
+from ..utils import Utils
 from .model19 import parse
+from ..routereader import RouteReader
 
 
 class PlanProReader19(object):
 
-    def __init__(self, plan_pro_file_name):
+    def __init__(self, plan_pro_file_name, geo_converter = None):
         if not plan_pro_file_name.endswith(".ppxml"):
             plan_pro_file_name = plan_pro_file_name + ".ppxml"
         self.plan_pro_file_name = plan_pro_file_name
+        self.geo_converter = geo_converter
         self.topology = Topology(name=self.plan_pro_file_name.split("/")[-1][:-6])
 
     def read_topology_from_plan_pro_file(self):
-        container = self._get_container()
+        root_object = parse(self.plan_pro_file_name, silence=True)
+        container = Utils.get_container(root_object)
 
         for c in container:
             self.read_topology_from_container(c)
         for c in container:
             self.read_signals_from_container(c)
         for c in container:
-            self.read_routes_from_container(c)
+            RouteReader.read_routes_from_container(c, self.topology)
 
         return self.topology
-
-    def _get_container(self):
-        container = []
-
-        root_object = parse(self.plan_pro_file_name, silence=True)
-        if root_object.LST_Planung is not None:
-            number_of_fachdaten = len(
-                root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten
-            )
-            for id_of_fachdaten in range(0, number_of_fachdaten):
-                container.append(
-                    root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten[
-                        id_of_fachdaten
-                    ].LST_Zustand_Ziel.Container
-                )
-        if root_object.LST_Zustand is not None:
-            container.append(root_object.LST_Zustand.Container)
-
-        if len(container) == 0:
-            raise ImportError("No PlanPro-data found")
-        return container
 
     def read_topology_from_container(self, container):
         for top_knoten in container.TOP_Knoten:
@@ -51,7 +33,7 @@ class PlanProReader19(object):
 
             # Coordinates
             geo_node_uuid = top_knoten.ID_GEO_Knoten.Wert
-            x, y = self.get_coordinates_of_geo_node(container, geo_node_uuid)
+            x, y = Utils.get_coordinates_of_geo_node(container, geo_node_uuid)
             if x is None or y is None:
                 continue
             node_obj.geo_node = DbrefGeoNode(x, y, uuid=geo_node_uuid)
@@ -65,26 +47,12 @@ class PlanProReader19(object):
             node_b = self.topology.nodes[top_kante.ID_TOP_Knoten_B.Wert]
             edge = Edge(node_a, node_b, length=length, uuid=top_kante_uuid)
 
-            # Anschluss A
-            anschluss_a = top_kante.TOP_Kante_Allg.TOP_Anschluss_A.Wert
-            if anschluss_a == "Links":
-                node_a.set_connection_left_edge(edge)
-            elif anschluss_a == "Rechts":
-                node_a.set_connection_right_edge(edge)
-            else:
-                node_a.set_connection_head_edge(edge)
-
-            # Anschluss B
-            anschluss_b = top_kante.TOP_Kante_Allg.TOP_Anschluss_B.Wert
-            if anschluss_b == "Links":
-                node_b.set_connection_left_edge(edge)
-            elif anschluss_b == "Rechts":
-                node_b.set_connection_right_edge(edge)
-            else:
-                node_b.set_connection_head_edge(edge)
+            # Anschluss
+            Utils.set_connection(top_kante.TOP_Kante_Allg.TOP_Anschluss_A.Wert, node_a, edge)
+            Utils.set_connection(top_kante.TOP_Kante_Allg.TOP_Anschluss_B.Wert, node_b, edge)
 
             # Intermediate geo nodes
-            geo_edges = self.get_all_geo_edges_by_top_edge_uuid(
+            geo_edges = Utils.get_all_geo_edges_by_top_edge_uuid(
                 container, top_kante_uuid
             )
 
@@ -105,6 +73,7 @@ class PlanProReader19(object):
             second_last_node_uuid = node_a.geo_node.uuid
             last_node_uuid = _get_other_uuid(node_a.geo_node.uuid, first_edge)
             geo_nodes_in_order = []
+            geo_nodes_in_order.extend(Utils.get_intermediate_geo_nodes_of_geo_edge(container, first_edge, second_last_node_uuid, self.geo_converter))
 
             def _get_next_edge(_last_node_uuid, _second_last_node):
                 for _geo_edge in geo_edges:
@@ -120,11 +89,13 @@ class PlanProReader19(object):
                 return None
 
             while last_node_uuid != node_b.geo_node.uuid:
-                x, y = self.get_coordinates_of_geo_node(container, last_node_uuid)
+                x, y = Utils.get_coordinates_of_geo_node(container, last_node_uuid)
                 geo_node = DbrefGeoNode(x, y, uuid=last_node_uuid)
                 geo_nodes_in_order.append(geo_node)
 
                 next_edge = _get_next_edge(last_node_uuid, second_last_node_uuid)
+                geo_nodes_in_order.extend(Utils.get_intermediate_geo_nodes_of_geo_edge(container, next_edge, last_node_uuid, self.geo_converter))
+
                 second_last_node_uuid = last_node_uuid
                 last_node_uuid = _get_other_uuid(second_last_node_uuid, next_edge)
 
@@ -214,21 +185,3 @@ class PlanProReader19(object):
             route.end_signal = end_signal
             route.edges = edges
             self.topology.add_route(route)
-
-    def get_coordinates_of_geo_node(self, container, uuid):
-        geo_points = container.GEO_Punkt
-        for geo_point in geo_points:
-            if geo_point.ID_GEO_Knoten is not None:
-                if geo_point.ID_GEO_Knoten.Wert == uuid:
-                    x = float(geo_point.GEO_Punkt_Allg.GK_X.Wert)
-                    y = float(geo_point.GEO_Punkt_Allg.GK_Y.Wert)
-                    return x, y
-        return None, None
-
-    def get_all_geo_edges_by_top_edge_uuid(self, container, top_edge_uuid):
-        geo_edges = container.GEO_Kante
-        result = []
-        for geo_edge in geo_edges:
-            if geo_edge.ID_GEO_Art.Wert == top_edge_uuid:
-                result.append(geo_edge)
-        return result

@@ -3,6 +3,7 @@ import logging
 from yaramo.model import DbrefGeoNode, Node, Topology
 
 from .model110 import CContainer
+from ..utils import Utils
 
 
 class NodeReader:
@@ -25,7 +26,7 @@ class NodeReader:
 
             # Coordinates
             geo_node_uuid = top_knoten.ID_GEO_Knoten.Wert
-            x, y = self.get_coordinates_of_geo_node(self.container, geo_node_uuid)
+            x, y = Utils.get_coordinates_of_geo_node(self.container, geo_node_uuid)
             if x is None or y is None:
                 continue
             node_obj.geo_node = DbrefGeoNode(x, y, uuid=geo_node_uuid)
@@ -97,21 +98,3 @@ class NodeReader:
                 )
                 return None
         return point
-
-    @staticmethod
-    def get_coordinates_of_geo_node(container: CContainer, uuid: str):
-        """Gets the coordinates of a geo node.
-
-        :param container: The container
-        :param uuid: The uuid of the geo node
-        :return: The coordinates (x, y)
-        """
-        geo_points = container.GEO_Punkt
-        for geo_point in geo_points:
-            if geo_point.ID_GEO_Knoten is None:
-                continue
-            if geo_point.ID_GEO_Knoten.Wert == uuid:
-                x = float(geo_point.GEO_Punkt_Allg.GK_X.Wert)
-                y = float(geo_point.GEO_Punkt_Allg.GK_Y.Wert)
-                return x, y
-        return None, None
