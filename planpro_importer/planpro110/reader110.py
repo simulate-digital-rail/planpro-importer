@@ -186,11 +186,11 @@ class PlanProReader110(object):
                 continue  # Start or end signal not found
 
             # Edges
-            edges = []
+            edges = set()
             for teilbereich in fstr_fahrweg.Bereich_Objekt_Teilbereich:
                 edge_uuid = teilbereich.ID_TOP_Kante.Wert
                 if edge_uuid in self.topology.edges:
-                    edges.append(self.topology.edges[edge_uuid])
+                    edges.add(self.topology.edges[edge_uuid])
 
             # Build route
             route = Route(
