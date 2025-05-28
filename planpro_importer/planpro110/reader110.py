@@ -1,7 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 
-from yaramo.model import DbrefGeoNode, Edge, Node, Route, Signal, Topology
+from yaramo.model import DbrefGeoNode, Edge, Node, Route, Signal, Topology, Track
 
 from .model110 import parse
 from .nodereader import NodeReader
@@ -143,3 +143,14 @@ class PlanProReader110(object):
                 )
                 node_a.remove_edge(edge)
                 node_b.remove_edge(edge)
+
+        for track in container.Gleis_Art:
+            uuid = track.Identitaet.Wert
+            track_type = track.Gleisart.Wert
+            track_obj = Track(track_type, uuid=uuid)
+            for section in track.Bereich_Objekt_Teilbereich:
+                section_start = section.Begrenzung_A.Wert
+                section_end = section.Begrenzung_B.Wert
+                section_edge = self.topology.edges[section.ID_TOP_Kante.Wert]
+                track_obj.add_edge_section(section_edge, section_start, section_end)
+            self.topology.add_track(track_obj)
