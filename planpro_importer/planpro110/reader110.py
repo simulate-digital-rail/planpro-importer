@@ -48,6 +48,7 @@ class PlanProReader110(object):
             node_reader.read_nodes()
             self.read_edges_from_container(_container)
             node_reader.add_point_names()
+            node_reader.get_drive_amounts()
         for _container in container:
             reader = SignalReader(self.topology, _container)
             reader.read_signals_from_container()
