@@ -1,19 +1,22 @@
-from .signalreader import SignalReader
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
-from yaramo.model import DbrefGeoNode, Edge, Node, Route, Signal, Topology
+from yaramo.model import DbrefGeoNode, Edge, Node, Route, Signal, Topology, Track
 
 from .model110 import parse
 from .nodereader import NodeReader
+from .signalreader import SignalReader
+from ..utils import Utils
+from ..routereader import RouteReader
 
 
 class PlanProReader110(object):
 
-    def __init__(self, plan_pro_file_name):
+    def __init__(self, plan_pro_file_name, geo_converter=None):
         if not plan_pro_file_name.endswith(".ppxml"):
             plan_pro_file_name = plan_pro_file_name + ".ppxml"
         self.plan_pro_file_name = plan_pro_file_name
+        self.geo_converter = geo_converter
         self.root_object = parse(self.plan_pro_file_name, silence=True)
 
         self.topology = Topology(name=Path(self.plan_pro_file_name).stem)
@@ -38,63 +41,38 @@ class PlanProReader110(object):
         return f"{tool} (Version: {version})"
 
     def read_topology_from_plan_pro_file(self):
-        container = self._get_container()
+        container = Utils.get_container(self.root_object)
 
         for _container in container:
             node_reader = NodeReader(self.topology, _container)
             node_reader.read_nodes()
             self.read_edges_from_container(_container)
             node_reader.add_point_names()
+            node_reader.get_drive_amounts()
         for _container in container:
-            self.read_signals_from_container(_container)
+            reader = SignalReader(self.topology, _container)
+            reader.read_signals_from_container()
         for _container in container:
-            self.read_routes_from_container(_container)
+            RouteReader.read_routes_from_container(_container, self.topology)
 
         return self.topology
-
-    def _get_container(self):
-        container = []
-
-        if self.root_object.LST_Planung is not None:
-            container.extend(
-                fd.LST_Zustand_Ziel.Container
-                for fd in self.root_object.LST_Planung.Fachdaten.Ausgabe_Fachdaten
-            )
-        if self.root_object.LST_Zustand is not None:
-            container.append(self.root_object.LST_Zustand.Container)
-
-        if not container:
-            raise ImportError("No PlanPro-data found")
-
-        return container
 
     def read_edges_from_container(self, container):
         for top_kante in container.TOP_Kante:
             top_kante_uuid = top_kante.Identitaet.Wert
+            length = float(top_kante.TOP_Kante_Allg.TOP_Laenge.Wert)
             node_a = self.topology.nodes[top_kante.ID_TOP_Knoten_A.Wert]
             node_b = self.topology.nodes[top_kante.ID_TOP_Knoten_B.Wert]
+            edge = Edge(node_a, node_b, length=length, uuid=top_kante_uuid)
 
             # Anschluss
-            def _set_connection(_anschluss, _cur_node, _other_node):
-                if _anschluss == "Links":
-                    _cur_node.set_connection_left(_other_node)
-                elif _anschluss == "Rechts":
-                    _cur_node.set_connection_right(_other_node)
-                else:
-                    _cur_node.set_connection_head(_other_node)
+            Utils.set_connection(top_kante.TOP_Kante_Allg.TOP_Anschluss_A.Wert, node_a, edge)
+            Utils.set_connection(top_kante.TOP_Kante_Allg.TOP_Anschluss_B.Wert, node_b, edge)
 
-            _set_connection(
-                top_kante.TOP_Kante_Allg.TOP_Anschluss_A.Wert, node_a, node_b
-            )
-            _set_connection(
-                top_kante.TOP_Kante_Allg.TOP_Anschluss_B.Wert, node_b, node_a
-            )
-
-            length = float(top_kante.TOP_Kante_Allg.TOP_Laenge.Wert)
             length_remaining = length
 
             # Intermediate geo nodes
-            geo_edges = self.get_all_geo_edges_by_top_edge_uuid(
+            geo_edges = Utils.get_all_geo_edges_by_top_edge_uuid(
                 container, top_kante_uuid
             )
 
@@ -115,6 +93,7 @@ class PlanProReader110(object):
             second_previous_node_uuid = node_a.geo_node.uuid
             previous_node_uuid = _get_other_uuid(node_a.geo_node.uuid, first_edge)
             geo_nodes_in_order = []
+            geo_nodes_in_order.extend(Utils.get_intermediate_geo_nodes_of_geo_edge(container, first_edge, second_previous_node_uuid, self.geo_converter))
 
             def _get_next_edge(_previous_node_uuid, _second_previous_node_uuid):
                 for _geo_edge in geo_edges:
@@ -131,22 +110,30 @@ class PlanProReader110(object):
 
             completed = True
             while previous_node_uuid != node_b.geo_node.uuid:
-                x, y = NodeReader.get_coordinates_of_geo_node(container, previous_node_uuid)
-                geo_node = DbrefGeoNode(x, y, uuid=previous_node_uuid)
+                x, y, source, coordinate_system = Utils.get_coordinates_of_geo_node(
+                    container, previous_node_uuid
+                )
+                geo_node = DbrefGeoNode(x, y, data_source=source, dbref_crs=coordinate_system, uuid=previous_node_uuid)
                 geo_nodes_in_order.append(geo_node)
 
-                next_edge = _get_next_edge(previous_node_uuid, second_previous_node_uuid)
+                next_edge = _get_next_edge(
+                    previous_node_uuid, second_previous_node_uuid
+                )
                 if next_edge is None:
                     completed = False
                     break
+
+                geo_nodes_in_order.extend(Utils.get_intermediate_geo_nodes_of_geo_edge(container, next_edge, previous_node_uuid, self.geo_converter))
+
                 second_previous_node_uuid = previous_node_uuid
                 length_remaining = length_remaining - float(
                     next_edge.GEO_Kante_Allg.GEO_Laenge.Wert
                 )
-                previous_node_uuid = _get_other_uuid(second_previous_node_uuid, next_edge)
+                previous_node_uuid = _get_other_uuid(
+                    second_previous_node_uuid, next_edge
+                )
 
             if completed:
-                edge = Edge(node_a, node_b, length=length, uuid=top_kante_uuid)
                 edge.intermediate_geo_nodes = geo_nodes_in_order
                 self.topology.add_edge(edge)
             else:
@@ -155,54 +142,16 @@ class PlanProReader110(object):
                     f"since the chain of geo edges is broken after {previous_node_uuid}. "
                     "This may cause errors later, since the topology is broken."
                 )
+                node_a.remove_edge(edge)
+                node_b.remove_edge(edge)
 
-    def read_signals_from_container(self, container):
-        reader = SignalReader(self.topology, container)
-        return reader.read_signals_from_container()
-
-    def read_routes_from_container(self, container):
-        for fstr_fahrweg in container.Fstr_Fahrweg:
-            fahrweg_uuid = str(fstr_fahrweg.Identitaet.Wert)
-
-            # Maximum speed
-            maximum_speed = None
-            if fstr_fahrweg.Fstr_V_Hg is not None:
-                maximum_speed = fstr_fahrweg.Fstr_V_Hg.Wert
-
-            # Start and End signal
-            start_signal = None
-            end_signal = None
-            start_signal_uuid = fstr_fahrweg.ID_Start.Wert
-            end_signal_uuid = fstr_fahrweg.ID_Ziel.Wert
-            if start_signal_uuid in self.topology.signals:
-                start_signal = self.topology.signals[start_signal_uuid]
-            if end_signal_uuid in self.topology.signals:
-                end_signal = self.topology.signals[end_signal_uuid]
-            if start_signal is None or end_signal is None:
-                continue  # Start or end signal not found
-
-            # Edges
-            edges = []
-            for teilbereich in fstr_fahrweg.Bereich_Objekt_Teilbereich:
-                edge_uuid = teilbereich.ID_TOP_Kante.Wert
-                if edge_uuid in self.topology.edges:
-                    edges.append(self.topology.edges[edge_uuid])
-
-            # Build route
-            route = Route(
-                start_signal=start_signal,
-                maximum_speed=maximum_speed,
-                uuid=fahrweg_uuid,
-                name=f"{start_signal.name}-{end_signal.name}",
-            )
-            route.end_signal = end_signal
-            route.edges = edges
-            self.topology.add_route(route)
-
-    def get_all_geo_edges_by_top_edge_uuid(self, container, top_edge_uuid):
-        geo_edges = container.GEO_Kante
-        result = []
-        for geo_edge in geo_edges:
-            if geo_edge.ID_GEO_Art.Wert == top_edge_uuid:
-                result.append(geo_edge)
-        return result
+        for track in container.Gleis_Art:
+            uuid = track.Identitaet.Wert
+            track_type = track.Gleisart.Wert
+            track_obj = Track(track_type, uuid=uuid)
+            for section in track.Bereich_Objekt_Teilbereich:
+                section_start = section.Begrenzung_A.Wert
+                section_end = section.Begrenzung_B.Wert
+                section_edge = self.topology.edges[section.ID_TOP_Kante.Wert]
+                track_obj.add_edge_section(section_edge, section_start, section_end)
+            self.topology.add_track(track_obj)

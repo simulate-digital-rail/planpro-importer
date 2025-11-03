@@ -3,6 +3,7 @@ import logging
 from yaramo.model import DbrefGeoNode, Node, Topology
 
 from .model110 import CContainer
+from ..utils import Utils
 
 
 class NodeReader:
@@ -25,10 +26,10 @@ class NodeReader:
 
             # Coordinates
             geo_node_uuid = top_knoten.ID_GEO_Knoten.Wert
-            x, y = self.get_coordinates_of_geo_node(self.container, geo_node_uuid)
+            x, y, source, coordinate_system = Utils.get_coordinates_of_geo_node(self.container, geo_node_uuid)
             if x is None or y is None:
                 continue
-            node_obj.geo_node = DbrefGeoNode(x, y, uuid=geo_node_uuid)
+            node_obj.geo_node = DbrefGeoNode(x, y, data_source=source, dbref_crs=coordinate_system, uuid=geo_node_uuid)
 
             self.topology.add_node(node_obj)
 
@@ -48,6 +49,19 @@ class NodeReader:
         for node in self.topology.nodes.values():
             if node.name is None:
                 node.name = node.uuid[-5:]
+
+    def get_drive_amounts(self):
+        """Gets the drive amount of a point by its uuid."""
+        w_kr_components = self.container.W_Kr_Gsp_Komponente
+        for w_kr_component in w_kr_components:
+            w_kr_element_uuid = w_kr_component.ID_W_Kr_Gsp_Element.Wert
+            w_kr_element = self.get_component_by_element_uuid(w_kr_element_uuid)
+            w_kr_element_point = self.get_point_of_component(w_kr_element)
+            w_kr_zungenpaar = w_kr_component.Zungenpaar
+            if w_kr_zungenpaar is not None:
+                w_kr_drive = w_kr_zungenpaar.Elektrischer_Antrieb_Anzahl.Wert
+                w_kr_element_point.drive_amount = w_kr_drive
+
 
     def get_component_by_element_uuid(self, element_uuid: str):
         """Gets the point component (W_Kr_Gsp_Komponente) by the
@@ -97,21 +111,3 @@ class NodeReader:
                 )
                 return None
         return point
-
-    @staticmethod
-    def get_coordinates_of_geo_node(container: CContainer, uuid: str):
-        """Gets the coordinates of a geo node.
-
-        :param container: The container
-        :param uuid: The uuid of the geo node
-        :return: The coordinates (x, y)
-        """
-        geo_points = container.GEO_Punkt
-        for geo_point in geo_points:
-            if geo_point.ID_GEO_Knoten is None:
-                continue
-            if geo_point.ID_GEO_Knoten.Wert == uuid:
-                x = float(geo_point.GEO_Punkt_Allg.GK_X.Wert)
-                y = float(geo_point.GEO_Punkt_Allg.GK_Y.Wert)
-                return x, y
-        return None, None
