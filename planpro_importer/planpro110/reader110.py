@@ -110,10 +110,10 @@ class PlanProReader110(object):
 
             completed = True
             while previous_node_uuid != node_b.geo_node.uuid:
-                x, y = Utils.get_coordinates_of_geo_node(
+                x, y, source, coordinate_system = Utils.get_coordinates_of_geo_node(
                     container, previous_node_uuid
                 )
-                geo_node = DbrefGeoNode(x, y, uuid=previous_node_uuid)
+                geo_node = DbrefGeoNode(x, y, data_source=source, dbref_crs=coordinate_system, uuid=previous_node_uuid)
                 geo_nodes_in_order.append(geo_node)
 
                 next_edge = _get_next_edge(

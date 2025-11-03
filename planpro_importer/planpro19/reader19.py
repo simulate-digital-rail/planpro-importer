@@ -33,10 +33,10 @@ class PlanProReader19(object):
 
             # Coordinates
             geo_node_uuid = top_knoten.ID_GEO_Knoten.Wert
-            x, y = Utils.get_coordinates_of_geo_node(container, geo_node_uuid)
+            x, y, source, coordinate_system = Utils.get_coordinates_of_geo_node(container, geo_node_uuid)
             if x is None or y is None:
                 continue
-            node_obj.geo_node = DbrefGeoNode(x, y, uuid=geo_node_uuid)
+            node_obj.geo_node = DbrefGeoNode(x, y, data_source=source, dbref_crs=coordinate_system, uuid=geo_node_uuid)
 
             self.topology.add_node(node_obj)
 
@@ -89,8 +89,8 @@ class PlanProReader19(object):
                 return None
 
             while last_node_uuid != node_b.geo_node.uuid:
-                x, y = Utils.get_coordinates_of_geo_node(container, last_node_uuid)
-                geo_node = DbrefGeoNode(x, y, uuid=last_node_uuid)
+                x, y, source, coordinate_system = Utils.get_coordinates_of_geo_node(container, last_node_uuid)
+                geo_node = DbrefGeoNode(x, y, data_source=source, dbref_crs=coordinate_system, uuid=last_node_uuid)
                 geo_nodes_in_order.append(geo_node)
 
                 next_edge = _get_next_edge(last_node_uuid, second_last_node_uuid)

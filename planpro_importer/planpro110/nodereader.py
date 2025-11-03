@@ -26,10 +26,10 @@ class NodeReader:
 
             # Coordinates
             geo_node_uuid = top_knoten.ID_GEO_Knoten.Wert
-            x, y = Utils.get_coordinates_of_geo_node(self.container, geo_node_uuid)
+            x, y, source, coordinate_system = Utils.get_coordinates_of_geo_node(self.container, geo_node_uuid)
             if x is None or y is None:
                 continue
-            node_obj.geo_node = DbrefGeoNode(x, y, uuid=geo_node_uuid)
+            node_obj.geo_node = DbrefGeoNode(x, y, data_source=source, dbref_crs=coordinate_system, uuid=geo_node_uuid)
 
             self.topology.add_node(node_obj)
 
@@ -57,11 +57,9 @@ class NodeReader:
             w_kr_element_uuid = w_kr_component.ID_W_Kr_Gsp_Element.Wert
             w_kr_element = self.get_component_by_element_uuid(w_kr_element_uuid)
             w_kr_element_point = self.get_point_of_component(w_kr_element)
-            print('w_kr_element: ', w_kr_element_uuid)
             w_kr_zungenpaar = w_kr_component.Zungenpaar
             if w_kr_zungenpaar is not None:
                 w_kr_drive = w_kr_zungenpaar.Elektrischer_Antrieb_Anzahl.Wert
-                print('w_kr_element: ', w_kr_element_uuid, 'Antriebe: ', w_kr_drive)
                 w_kr_element_point.drive_amount = w_kr_drive
 
 

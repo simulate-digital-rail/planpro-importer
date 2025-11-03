@@ -12,10 +12,17 @@ class Utils:
         """
         geo_point = Utils.get_geo_point_by_geo_node_uuid(container, uuid)
         if geo_point is None:
-            return None, None
+            return None, None, None, None
         x = float(geo_point.GEO_Punkt_Allg.GK_X.Wert)
         y = float(geo_point.GEO_Punkt_Allg.GK_Y.Wert)
-        return x, y
+        source = str(geo_point.GEO_Punkt_Allg.Plan_Quelle.Wert)
+
+        try:
+            coordinate_system = geo_point.GEO_Punkt_Allg.GEO_Koordinatensystem.Wert
+        except AttributeError:
+            coordinate_system = geo_point.GEO_Punkt_Allg.GEO_KoordinatenSystem_LSys.Wert
+
+        return x, y, source, coordinate_system
 
     @staticmethod
     def get_geo_point_by_geo_node_uuid(container, uuid: str):
@@ -74,8 +81,8 @@ class Utils:
             geo_point_a = Utils.get_geo_point_by_geo_node_uuid(container, edge.ID_GEO_Knoten_A.Wert)
             geo_point_b = Utils.get_geo_point_by_geo_node_uuid(container, edge.ID_GEO_Knoten_B.Wert)
             inter_geo_nodes = geo_converter.get_intermediate_geo_nodes_of_geo_edge(edge, geo_point_a, geo_point_b)
-            x, y = Utils.get_coordinates_of_geo_node(container, last_node_uuid)
-            last_geo_node = DbrefGeoNode(x, y)
+            x, y, source, coordinate_system = Utils.get_coordinates_of_geo_node(container, last_node_uuid)
+            last_geo_node = DbrefGeoNode(x, y, data_source=source, dbref_crs=coordinate_system)
 
             if len(inter_geo_nodes) <= 1:
                 return inter_geo_nodes
